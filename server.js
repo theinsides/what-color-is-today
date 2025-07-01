@@ -9,8 +9,8 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // MongoDB connection
-const mongoUrl = 'mongodb://localhost:27017';
-const dbName = 'colorquiz';
+const mongoUrl = process.env.MONGODB_URI || 'mongodb://localhost:27017';
+const dbName = process.env.DB_NAME || 'colorquiz';
 let db;
 
 // Connect to MongoDB
@@ -22,16 +22,30 @@ async function connectToMongo() {
         console.log('Connected to MongoDB');
     } catch (error) {
         console.error('MongoDB connection error:', error);
-        process.exit(1);
+        // Don't exit process in production, just log the error
+        if (process.env.NODE_ENV === 'production') {
+            console.log('Continuing without database connection...');
+        } else {
+            process.exit(1);
+        }
     }
 }
 
 // Initialize database connection
 connectToMongo();
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
 // Routes
 app.post('/api/submit-response', async (req, res) => {
     try {
+        if (!db) {
+            return res.status(503).json({ error: 'Database not connected' });
+        }
+        
         const { day, color } = req.body;
         const response = {
             day,
@@ -49,6 +63,10 @@ app.post('/api/submit-response', async (req, res) => {
 
 app.get('/api/global-stats', async (req, res) => {
     try {
+        if (!db) {
+            return res.status(503).json({ error: 'Database not connected' });
+        }
+        
         const stats = {};
         
         for (const day of ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']) {
@@ -79,4 +97,5 @@ app.get('/api/global-stats', async (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 }); 
