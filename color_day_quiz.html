@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Color is Today?</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #ffffff;
+            overflow: hidden; /* Prevent body scroll */
+        }
+
+        .screen-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.4s ease;
+            pointer-events: none;
+            overflow-y: auto; /* Allow scrolling on individual screens */
+        }
+
+        .screen.active {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+            z-index: 2;
+        }
+
+        .screen.leaving {
+            opacity: 0;
+            transform: translateY(-20px);
+            z-index: 1;
+        }
+        
+        .screen.hidden {
+             display: none;
+        }
+
+        /* Splash Screen */
+        .splash {
+            text-align: center;
+            color: #333;
+        }
+
+        .splash h1 {
+            font-size: clamp(3rem, 8vw, 6rem);
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: linear-gradient(45deg, #ff6b6b, #ffd93d, #6bcf7f, #4ecdc4, #45b7d1, #96ceb4);
+            background-size: 400% 400%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientShift 3s ease-in-out infinite;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .splash p {
+            font-size: 1.2rem;
+            margin-bottom: 3rem;
+            opacity: 0.7;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        /* Day Screens */
+        .day-screen-content {
+            text-align: center;
+            color: #333;
+            max-width: 800px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 4rem 0; /* Add padding to prevent content hitting edges */
+        }
+
+        .day-screen-content h2 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            text-shadow: none;
+            transition: color 0.4s ease;
+        }
+
+        .color-name {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #333;
+            text-shadow: none;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            min-height: 2.5rem;
+            margin-bottom: 2rem;
+            transition: color 0.4s ease;
+        }
+
+        .color-picker-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+
+        .color-wheel-container {
+            position: relative;
+            width: 400px;
+            height: 400px;
+        }
+        
+        .color-wheel-canvas {
+            border-radius: 50%;
+            cursor: crosshair;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .color-selector {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            box-shadow: 0 0 0 2px rgba(0,0,0,0.5);
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            display: none;
+            transition: background-color 0.4s ease;
+        }
+        
+        .brightness-slider-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .brightness-slider {
+            width: 200px;
+            height: 6px;
+            border-radius: 3px;
+            background: linear-gradient(to right, #000, #fff);
+            outline: none;
+            cursor: pointer;
+            -webkit-appearance: none;
+        }
+
+        .brightness-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #333;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            transition: background-color 0.4s ease;
+        }
+
+        .brightness-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #333;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            transition: background-color 0.4s ease;
+        }
+
+        .brightness-label {
+            font-size: 0.9rem;
+            color: #666;
+            font-weight: 500;
+            transition: color 0.4s ease;
+        }
+
+        /* Buttons */
+        .btn {
+            background: #000000;
+            color: white;
+            border: 2px solid #000000;
+            padding: 1rem 3rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
+            background: #333;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Light text on dark background */
+        .screen.dark-theme h2,
+        .screen.dark-theme .color-name,
+        .screen.dark-theme .brightness-label {
+            color: #ffffff;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .screen.dark-theme .btn {
+            background-color: #fff;
+            color: #000;
+            border-color: #fff;
+        }
+
+        .screen.dark-theme .btn:hover {
+            background-color: #eee;
+        }
+
+        .screen.dark-theme .brightness-slider::-webkit-slider-thumb {
+            background: #fff;
+        }
+        .screen.dark-theme .brightness-slider::-moz-range-thumb {
+            background: #fff;
+        }
+
+        /* Results Screen */
+        .results-content {
+            text-align: center;
+            color: #333;
+            max-width: 1200px;
+            width: 100%;
+            padding: 4rem 1rem; /* Add padding for scroll safety */
+        }
+
+        .results-content h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 3rem;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+            width: 100%;
+        }
+
+        @media (min-width: 900px) {
+            .results-grid {
+                grid-template-columns: 1fr 1.5fr;
+                gap: 3rem;
+            }
+        }
+
+        .results-section {
+            background: rgba(0,0,0,0.03);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            border: 1px solid rgba(0,0,0,0.07);
+        }
+
+        .results-section h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .your-colors {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .day-result {
+            text-align: center;
+        }
+
+        .day-result .day-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #555;
+        }
+
+        .day-result .color-circle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            margin: 0 auto 0.75rem;
+            border: 2px solid rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .day-result .color-hex {
+            font-size: 0.8rem;
+            margin: 0;
+            min-height: auto;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            color: #666;
+        }
+
+        .comparison-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: rgba(0,0,0,0.02);
+            border-radius: 10px;
+        }
+
+        @media (max-width: 767px) {
+            .comparison-item {
+                flex-direction: column;
+                text-align: center;
+                gap: 0.75rem;
+            }
+        }
+
+        .comparison-day {
+            font-weight: 600;
+            min-width: 80px;
+        }
+
+        .comparison-stats {
+            text-align: right;
+            font-size: 0.9rem;
+        }
+
+        .top-colors {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .top-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.2);
+        }
+
+        .share-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .share-btn {
+            background: #000000;
+            padding: 0.8rem 2rem;
+        }
+
+        /* Canvas for sharing */
+        #shareCanvas {
+            display: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .color-wheel-container {
+                width: 300px;
+                height: 300px;
+            }
+            
+            .color-wheel-canvas {
+                width: 300px;
+                height: 300px;
+            }
+            
+            .brightness-slider {
+                width: 150px;
+            }
+        }
+
+        /* Progress indicator */
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #ffd93d);
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+    </style>
+</head>
+<body>
+    <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+    </div>
+
+    <div class="screen-container">
+        <!-- Splash Screen -->
+        <div class="screen splash active" id="splash">
+            <h1>What color is today?</h1>
+            <p>Choose what colors each day of the week make you think of and see how your results compare to the rest of the world.</p>
+            <button class="btn" onclick="startQuiz()">Start</button>
+        </div>
+
+        <!-- Day Screens -->
+        <div class="screen hidden" id="monday">
+            <div class="day-screen-content">
+                <h2>Monday</h2>
+                <div class="color-name" id="mondayColorName"></div>
+                <div class="color-picker-section">
+                    <div class="color-wheel-container">
+                        <canvas class="color-wheel-canvas" id="mondayCanvas" width="400" height="400"></canvas>
+                        <div class="color-selector" id="mondaySelector"></div>
+                    </div>
+                    <div class="brightness-slider-container">
+                        <input type="range" class="brightness-slider" id="mondayBrightness" min="0" max="100" value="50">
+                        <div class="brightness-label">Brightness</div>
+                    </div>
+                </div>
+                <button class="btn" onclick="nextDay('tuesday')" disabled id="mondayNext">Next</button>
+            </div>
+        </div>
+
+        <div class="screen hidden" id="tuesday">
+            <div class="day-screen-content">
+                <h2>Tuesday</h2>
+                <div class="color-name" id="tuesdayColorName"></div>
+                <div class="color-picker-section">
+                    <div class="color-wheel-container">
+                        <canvas class="color-wheel-canvas" id="tuesdayCanvas" width="400" height="400"></canvas>
+                        <div class="color-selector" id="tuesdaySelector"></div>
+                    </div>
+                    <div class="brightness-slider-container">
+                        <input type="range" class="brightness-slider" id="tuesdayBrightness" min="0" max="100" value="50">
+                        <div class="brightness-label">Brightness</div>
+                    </div>
+                </div>
+                <button class="btn" onclick="nextDay('wednesday')" disabled id="tuesdayNext">Next</button>
+            </div>
+        </div>
+
+        <div class="screen hidden" id="wednesday">
+            <div class="day-screen-content">
+                <h2>Wednesday</h2>
+                <div class="color-name" id="wednesdayColorName"></div>
+                <div class="color-picker-section">
+                    <div class="color-wheel-container">
+                        <canvas class="color-wheel-canvas" id="wednesdayCanvas" width="400" height="400"></canvas>
+                        <div class="color-selector" id="wednesdaySelector"></div>
+                    </div>
+                    <div class="brightness-slider-container">
+                        <input type="range" class="brightness-slider" id="wednesdayBrightness" min="0" max="100" value="50">
+                        <div class="brightness-label">Brightness</div>
+                    </div>
+                </div>
+                <button class="btn" onclick="nextDay('thursday')" disabled id="wednesdayNext">Next</button>
+            </div>
+        </div>
+
+        <div class="screen hidden" id="thursday">
+            <div class="day-screen-content">
+                <h2>Thursday</h2>
+                <div class="color-name" id="thursdayColorName"></div>
+                <div class="color-picker-section">
+                    <div class="color-wheel-container">
+                        <canvas class="color-wheel-canvas" id="thursdayCanvas" width="400" height="400"></canvas>
+                        <div class="color-selector" id="thursdaySelector"></div>
+                    </div>
+                    <div class="brightness-slider-container">
+                        <input type="range" class="brightness-slider" id="thursdayBrightness" min="0" max="100" value="50">
+                        <div class="brightness-label">Brightness</div>
+                    </div>
+                </div>
+                <button class="btn" onclick="nextDay('friday')" disabled id="thursdayNext">Next</button>
+            </div>
+        </div>
+
+        <div class="screen hidden" id="friday">
+            <div class="day-screen-content">
+                <h2>Friday</h2>
+                <div class="color-name" id="fridayColorName"></div>
+                <div class="color-picker-section">
+                    <div class="color-wheel-container">
+                        <canvas class="color-wheel-canvas" id="fridayCanvas" width="400" height="400"></canvas>
+                        <div class="color-selector" id="fridaySelector"></div>
+                    </div>
+                    <div class="brightness-slider-container">
+                        <input type="range" class="brightness-slider" id="fridayBrightness" min="0" max="100" value="50">
+                        <div class="brightness-label">Brightness</div>
+                    </div>
+                </div>
+                <button class="btn" onclick="nextDay('saturday')" disabled id="fridayNext">Next</button>
+            </div>
+        </div>
+
+        <div class="screen hidden" id="saturday">
+            <div class="day-screen-content">
+                <h2>Saturday</h2>
+                <div class="color-name" id="saturdayColorName"></div>
+                <div class="color-picker-section">
+                    <div class="color-wheel-container">
+                        <canvas class="color-wheel-canvas" id="saturdayCanvas" width="400" height="400"></canvas>
+                        <div class="color-selector" id="saturdaySelector"></div>
+                    </div>
+                    <div class="brightness-slider-container">
+                        <input type="range" class="brightness-slider" id="saturdayBrightness" min="0" max="100" value="50">
+                        <div class="brightness-label">Brightness</div>
+                    </div>
+                </div>
+                <button class="btn" onclick="nextDay('sunday')" disabled id="saturdayNext">Next</button>
+            </div>
+        </div>
+
+        <div class="screen hidden" id="sunday">
+            <div class="day-screen-content">
+                <h2>Sunday</h2>
+                <div class="color-name" id="sundayColorName"></div>
+                <div class="color-picker-section">
+                    <div class="color-wheel-container">
+                        <canvas class="color-wheel-canvas" id="sundayCanvas" width="400" height="400"></canvas>
+                        <div class="color-selector" id="sundaySelector"></div>
+                    </div>
+                    <div class="brightness-slider-container">
+                        <input type="range" class="brightness-slider" id="sundayBrightness" min="0" max="100" value="50">
+                        <div class="brightness-label">Brightness</div>
+                    </div>
+                </div>
+                <button class="btn" onclick="showResults()" disabled id="sundayNext">See Results</button>
+            </div>
+        </div>
+
+        <!-- Results Screen -->
+        <div class="screen hidden" id="results">
+            <div class="results-content">
+                <h2>Your Color Week</h2>
+                <div class="results-grid">
+                    <div class="results-section">
+                        <h3>Your Choices</h3>
+                        <div class="your-colors" id="yourColors"></div>
+                    </div>
+                    <div class="results-section">
+                        <h3>Global Comparison</h3>
+                        <div id="globalComparison"></div>
+                    </div>
+                </div>
+                <div class="share-buttons">
+                    <button class="btn share-btn" onclick="shareResults()">Share Your Results</button>
+                    <button class="btn" onclick="restartQuiz()">Take Again</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="shareCanvas" width="800" height="600"></canvas>
+
+    <script>
+        const colors = [
+            { name: 'Crimson Red', hex: '#DC143C', hue: 'red' },
+            { name: 'Coral Pink', hex: '#FF7F7F', hue: 'red' },
+            { name: 'Sunset Orange', hex: '#FF6B35', hue: 'orange' },
+            { name: 'Peach', hex: '#FFAB91', hue: 'orange' },
+            { name: 'Golden Yellow', hex: '#FFD700', hue: 'yellow' },
+            { name: 'Lemon', hex: '#FFF59D', hue: 'yellow' },
+            { name: 'Forest Green', hex: '#228B22', hue: 'green' },
+            { name: 'Mint', hex: '#98FB98', hue: 'green' },
+            { name: 'Ocean Blue', hex: '#006994', hue: 'blue' },
+            { name: 'Sky Blue', hex: '#87CEEB', hue: 'blue' },
+            { name: 'Royal Purple', hex: '#7851A9', hue: 'purple' },
+            { name: 'Lavender', hex: '#E6E6FA', hue: 'purple' },
+            { name: 'Charcoal', hex: '#36454F', hue: 'gray' },
+            { name: 'Silver', hex: '#C0C0C0', hue: 'gray' },
+            { name: 'Pure White', hex: '#FFFFFF', hue: 'white' },
+            { name: 'Cream', hex: '#F5F5DC', hue: 'white' }
+        ];
+
+        const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        let userChoices = {};
+        let currentDayIndex = 0;
+
+        // Mock global data for demonstration
+        const globalData = {
+            monday: { '#006994': 23, '#36454F': 18, '#228B22': 15, '#7851A9': 12, '#DC143C': 10 },
+            tuesday: { '#228B22': 21, '#006994': 19, '#FFD700': 16, '#36454F': 14, '#FF7F7F': 11 },
+            wednesday: { '#FFD700': 25, '#228B22': 18, '#006994': 16, '#7851A9': 13, '#C0C0C0': 10 },
+            thursday: { '#7851A9': 22, '#FFD700': 20, '#228B22': 17, '#006994': 15, '#36454F': 9 },
+            friday: { '#FF6B35': 28, '#FFD700': 24, '#FF7F7F': 18, '#7851A9': 15, '#87CEEB': 8 },
+            saturday: { '#87CEEB': 26, '#FF6B35': 22, '#FFD700': 19, '#98FB98': 16, '#E6E6FA': 12 },
+            sunday: { '#E6E6FA': 24, '#87CEEB': 21, '#FFFFFF': 18, '#F5F5DC': 16, '#C0C0C0': 13 }
+        };
+
+        function getContrastTheme(hex){
+            if (!hex) return 'light';
+            const r = parseInt(hex.substring(1,3),16);
+            const g = parseInt(hex.substring(3,5),16);
+            const b = parseInt(hex.substring(5,7),16);
+            const yiq = ((r*299)+(g*587)+(b*114))/1000;
+            return (yiq >= 128) ? 'light' : 'dark';
+        }
+
+        class ColorWheel {
+            constructor(day) {
+                this.day = day;
+                this.canvas = document.getElementById(this.day + 'Canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.colorNameElement = document.getElementById(this.day + 'ColorName');
+                this.brightnessSlider = document.getElementById(this.day + 'Brightness');
+                this.selectorElement = document.getElementById(this.day + 'Selector');
+                this.screenElement = document.getElementById(this.day);
+                
+                this.radius = this.canvas.width / 2;
+                this.centerX = this.radius;
+                this.centerY = this.radius;
+                this.selectedColor = null;
+                this.brightness = 50;
+                
+                this.init();
+            }
+            
+            init() {
+                this.drawColorWheel();
+                this.setupEventListeners();
+            }
+            
+            drawColorWheel() {
+                const imageData = this.ctx.createImageData(this.canvas.width, this.canvas.height);
+                const data = imageData.data;
+                
+                for (let y = 0; y < this.canvas.height; y++) {
+                    for (let x = 0; x < this.canvas.width; x++) {
+                        const dx = x - this.centerX;
+                        const dy = y - this.centerY;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance <= this.radius) {
+                            const angle = Math.atan2(dy, dx);
+                            const hue = (angle * 180 / Math.PI + 360) % 360;
+                            const saturation = Math.min(100, (distance / this.radius) * 100);
+                            const lightness = this.brightness;
+                            
+                            const rgb = this.hslToRgb(hue / 360, saturation / 100, lightness / 100);
+                            const index = (y * this.canvas.width + x) * 4;
+                            
+                            data[index] = rgb[0];
+                            data[index + 1] = rgb[1];
+                            data[index + 2] = rgb[2];
+                            data[index + 3] = 255;
+                        }
+                    }
+                }
+                
+                this.ctx.putImageData(imageData, 0, 0);
+            }
+            
+            hslToRgb(h, s, l) {
+                let r, g, b;
+                
+                if (s === 0) {
+                    r = g = b = l;
+                } else {
+                    const hue2rgb = (p, q, t) => {
+                        if (t < 0) t += 1;
+                        if (t > 1) t -= 1;
+                        if (t < 1/6) return p + (q - p) * 6 * t;
+                        if (t < 1/2) return q;
+                        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                        return p;
+                    };
+                    
+                    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                    const p = 2 * l - q;
+                    r = hue2rgb(p, q, h + 1/3);
+                    g = hue2rgb(p, q, h);
+                    b = hue2rgb(p, q, h - 1/3);
+                }
+                
+                return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+            }
+            
+            setupEventListeners() {
+                this.canvas.addEventListener('click', (e) => this.handleClick(e));
+                this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+                this.brightnessSlider.addEventListener('input', (e) => this.handleBrightnessChange(e));
+            }
+
+            handleMouseDown(e) {
+                e.preventDefault();
+                this.isDragging = true;
+                this.handleMouseMove(e);
+                
+                const handleMouseMove = (e) => {
+                    if (this.isDragging) {
+                        this.handleMouseMove(e);
+                    }
+                };
+                
+                const handleMouseUp = () => {
+                    this.isDragging = false;
+                    document.removeEventListener('mousemove', handleMouseMove);
+                    document.removeEventListener('mouseup', handleMouseUp);
+                };
+                
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+            }
+
+            handleMouseMove(e) {
+                if (!this.isDragging) return;
+                
+                const rect = this.canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const color = this.getColorAt(x, y);
+                if (color) {
+                    this.updateSelectedColor(color, true);
+                }
+            }
+
+            updateSelectedColor(color, fromUserClick = false) {
+                this.selectedColor = color;
+                
+                this.screenElement.style.backgroundColor = color.hex;
+                this.colorNameElement.textContent = color.hex;
+                this.selectorElement.style.left = color.x + 'px';
+                this.selectorElement.style.top = color.y + 'px';
+                this.selectorElement.style.display = 'block';
+
+                const theme = getContrastTheme(color.hex);
+                this.screenElement.classList.toggle('dark-theme', theme === 'dark');
+
+                userChoices[this.day] = color;
+
+                if(fromUserClick) {
+                    document.getElementById(this.day + 'Next').disabled = false;
+                    updateProgress();
+                }
+            }
+
+            handleClick(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const color = this.getColorAt(x, y);
+                if (color) {
+                    this.updateSelectedColor(color, true);
+                }
+            }
+            
+            handleBrightnessChange(e) {
+                this.brightness = parseInt(e.target.value);
+                this.drawColorWheel();
+                
+                if (this.selectedColor) {
+                    const newColor = this.getColorAt(
+                        this.selectedColor.x,
+                        this.selectedColor.y
+                    );
+                    if (newColor) {
+                        this.updateSelectedColor(newColor, false);
+                    }
+                }
+            }
+            
+            getColorAt(x, y) {
+                const dx = x - this.centerX;
+                const dy = y - this.centerY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance <= this.radius) {
+                    const angle = Math.atan2(dy, dx);
+                    const hue = (angle * 180 / Math.PI + 360) % 360;
+                    const saturation = Math.min(100, (distance / this.radius) * 100);
+                    const lightness = this.brightness;
+                    
+                    const rgb = this.hslToRgb(hue / 360, saturation / 100, lightness / 100);
+                    return {
+                        hex: this.rgbToHex(rgb[0], rgb[1], rgb[2]),
+                        rgb: rgb,
+                        hsl: [hue, saturation, lightness],
+                        x: x,
+                        y: y
+                    };
+                }
+                return null;
+            }
+            
+            rgbToHex(r, g, b) {
+                return '#' + [r, g, b].map(x => {
+                    return x.toString(16).padStart(2, '0');
+                }).join('');
+            }
+        }
+
+        const colorWheels = {};
+
+        function startQuiz() {
+            days.forEach(day => {
+                colorWheels[day] = new ColorWheel(day);
+            });
+            
+            showScreen('monday');
+            currentDayIndex = 0;
+            updateProgress();
+        }
+
+        function updateProgress() {
+            const progress = (Object.keys(userChoices).length / 7) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+        }
+
+        function showScreen(screenId, withAnimation = true) {
+            const currentActive = document.querySelector('.screen.active');
+            const nextScreen = document.getElementById(screenId);
+
+            if (!withAnimation) {
+                if (currentActive) {
+                    currentActive.classList.remove('active');
+                    currentActive.classList.add('hidden');
+                }
+                if (nextScreen) {
+                    nextScreen.classList.remove('hidden');
+                    nextScreen.classList.add('active');
+                }
+                return;
+            }
+
+            if (currentActive) {
+                currentActive.classList.add('leaving');
+                currentActive.classList.remove('active');
+
+                currentActive.addEventListener('transitionend', (e) => {
+                    if (e.target === currentActive) {
+                        currentActive.classList.add('hidden');
+                        currentActive.classList.remove('leaving');
+                    }
+                }, { once: true });
+            }
+
+            if (nextScreen) {
+                nextScreen.classList.remove('hidden');
+                nextScreen.classList.remove('leaving');
+                void nextScreen.offsetWidth;
+                nextScreen.classList.add('active');
+            }
+        }
+
+        function nextDay(nextDayId) {
+            currentDayIndex++;
+            showScreen(nextDayId, false);
+        }
+
+        function showResults() {
+            showScreen('results', false);
+            displayResults();
+        }
+
+        function displayResults() {
+            const yourColorsContainer = document.getElementById('yourColors');
+            yourColorsContainer.innerHTML = '';
+            
+            days.forEach((day, index) => {
+                const dayResult = document.createElement('div');
+                dayResult.className = 'day-result';
+                
+                const userColor = userChoices[day];
+                dayResult.innerHTML = `
+                    <div class="day-name">${dayNames[index]}</div>
+                    <div class="color-circle" style="background-color: ${userColor.hex}"></div>
+                    <div class="color-hex">${userColor.hex}</div>
+                `;
+                
+                yourColorsContainer.appendChild(dayResult);
+            });
+            
+            const comparisonContainer = document.getElementById('globalComparison');
+            comparisonContainer.innerHTML = '';
+            
+            days.forEach((day, index) => {
+                const userChoice = userChoices[day];
+                const dayData = globalData[day];
+                const userPercentage = dayData[userChoice.hex] || 5;
+                
+                const topColors = Object.entries(dayData)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 3);
+                
+                const comparisonItem = document.createElement('div');
+                comparisonItem.className = 'comparison-item';
+                
+                const topColorsHtml = topColors.map(([colorHex, percentage]) => {
+                    return `<div class="top-color" style="background-color: ${colorHex}" title="${colorHex} (${percentage}%)"></div>`;
+                }).join('');
+                
+                comparisonItem.innerHTML = `
+                    <div class="comparison-day">${dayNames[index]}</div>
+                    <div class="comparison-stats">
+                        <div>You chose: ${userChoice.hex}</div>
+                        <div>${userPercentage}% chose this color</div>
+                        <div class="top-colors" style="margin-top: 0.5rem;">
+                            <span style="font-size: 0.8rem; margin-right: 0.5rem;">Top picks:</span>
+                            ${topColorsHtml}
+                        </div>
+                    </div>
+                `;
+                
+                comparisonContainer.appendChild(comparisonItem);
+            });
+        }
+
+        async function shareResults() {
+            const canvas = document.getElementById('shareCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Set canvas size for better quality
+            canvas.width = 1200;
+            canvas.height = 800;
+            
+            // Create gradient background
+            const gradient = ctx.createLinearGradient(0, 0, 1200, 800);
+            gradient.addColorStop(0, '#f8f9fa');
+            gradient.addColorStop(1, '#e9ecef');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 1200, 800);
+            
+            // Add decorative elements
+            ctx.fillStyle = 'rgba(255, 107, 107, 0.1)';
+            ctx.beginPath();
+            ctx.arc(100, 100, 50, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            ctx.fillStyle = 'rgba(255, 217, 61, 0.1)';
+            ctx.beginPath();
+            ctx.arc(1100, 100, 60, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Add title
+            ctx.fillStyle = '#333';
+            ctx.font = 'bold 72px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('My Color Week', 600, 120);
+            
+            // Add subtitle
+            ctx.font = '32px Inter, sans-serif';
+            ctx.fillStyle = '#666';
+            ctx.fillText('The colors that remind me of each day', 600, 170);
+            
+            // Draw color wheel representation
+            const startX = 150;
+            const startY = 250;
+            const spacing = 150;
+            
+            days.forEach((day, index) => {
+                const x = startX + (index * spacing);
+                const y = startY;
+                const color = userChoices[day];
+                
+                // Draw color circle with shadow
+                ctx.shadowColor = 'rgba(0,0,0,0.2)';
+                ctx.shadowBlur = 10;
+                ctx.shadowOffsetX = 2;
+                ctx.shadowOffsetY = 2;
+                
+                ctx.beginPath();
+                ctx.arc(x, y, 50, 0, 2 * Math.PI);
+                ctx.fillStyle = color.hex;
+                ctx.fill();
+                
+                ctx.shadowColor = 'transparent';
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+                
+                // Add day label
+                ctx.fillStyle = '#333';
+                ctx.font = 'bold 24px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(dayNames[index], x, y + 100);
+                
+                // Add color hex
+                ctx.font = '18px Monaco, monospace';
+                ctx.fillStyle = '#666';
+                ctx.fillText(color.hex, x, y + 130);
+            });
+            
+            // Add personal stats
+            ctx.fillStyle = '#333';
+            ctx.font = 'bold 36px Inter, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('My Color Profile', 150, 500);
+            
+            // Calculate color statistics
+            const colorStats = calculateColorStats();
+            
+            ctx.font = '20px Inter, sans-serif';
+            ctx.fillStyle = '#666';
+            let yOffset = 550;
+            colorStats.forEach(stat => {
+                ctx.fillText(`${stat.hue}: ${stat.count} days`, 150, yOffset);
+                yOffset += 30;
+            });
+            
+            // Add website attribution
+            ctx.font = '24px Inter, sans-serif';
+            ctx.fillStyle = 'rgba(51, 51, 51, 0.6)';
+            ctx.textAlign = 'center';
+            ctx.fillText('Created with What Color is Today?', 600, 750);
+            
+            // Convert to blob and share
+            canvas.toBlob(blob => {
+                if (navigator.share && navigator.canShare) {
+                    const file = new File([blob], 'my-color-week.png', { type: 'image/png' });
+                    navigator.share({
+                        title: 'My Color Week',
+                        text: 'Check out what colors remind me of each day of the week!',
+                        files: [file]
+                    }).catch(err => {
+                        console.log('Share failed:', err);
+                        downloadImage(blob);
+                    });
+                } else {
+                    downloadImage(blob);
+                }
+            }, 'image/png', 0.95);
+        }
+
+        function downloadImage(blob) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'my-color-week.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function calculateColorStats() {
+            const stats = {};
+            days.forEach(day => {
+                const color = userChoices[day];
+                const hue = getHueFromHex(color.hex);
+                const hueName = getHueName(hue);
+                stats[hueName] = (stats[hueName] || 0) + 1;
+            });
+            
+            return Object.entries(stats)
+                .map(([hue, count]) => ({ hue, count }))
+                .sort((a, b) => b.count - a.count);
+        }
+
+        function getHueFromHex(hex) {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            const delta = max - min;
+            
+            if (delta === 0) return 0;
+            
+            let hue;
+            switch (max) {
+                case r: hue = ((g - b) / delta) % 6; break;
+                case g: hue = (b - r) / delta + 2; break;
+                case b: hue = (r - g) / delta + 4; break;
+            }
+            
+            return (hue * 60 + 360) % 360;
+        }
+
+        function getHueName(hue) {
+            if (hue < 15 || hue >= 345) return 'Red';
+            if (hue < 45) return 'Orange';
+            if (hue < 75) return 'Yellow';
+            if (hue < 165) return 'Green';
+            if (hue < 255) return 'Blue';
+            if (hue < 285) return 'Purple';
+            return 'Pink';
+        }
+
+        function restartQuiz() {
+            userChoices = {};
+            currentDayIndex = 0;
+            
+            days.forEach(day => {
+                const wheel = colorWheels[day];
+                wheel.selectedColor = null;
+                wheel.selectorElement.style.display = 'none';
+                wheel.colorNameElement.textContent = '';
+                wheel.brightnessSlider.value = 50;
+                wheel.brightness = 50;
+                wheel.drawColorWheel();
+                
+                const screenEl = document.getElementById(day);
+                screenEl.style.backgroundColor = '';
+                screenEl.classList.remove('dark-theme');
+            });
+            
+            document.querySelectorAll('.btn[id$="Next"]').forEach(btn => {
+                btn.disabled = true;
+            });
+            
+            document.getElementById('progressFill').style.width = '0%';
+            
+            showScreen('splash');
+        }
+
+        updateProgress();
+    </script>
+</body>
+</html>
