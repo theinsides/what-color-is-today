@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const mongoose = require('mongoose');
+const { MongoClient } = require('mongodb');
 const app = express();
 
 // Middleware
@@ -9,32 +9,40 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // MongoDB connection
-mongoose.connect('mongodb://localhost:27017/colorquiz', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-});
+const mongoUrl = 'mongodb://localhost:27017';
+const dbName = 'colorquiz';
+let db;
 
-// Schema for user responses
-const userResponseSchema = new mongoose.Schema({
-    day: String,
-    color: {
-        hex: String,
-        rgb: [Number],
-        hsl: [Number]
-    },
-    timestamp: { type: Date, default: Date.now }
-});
+// Connect to MongoDB
+async function connectToMongo() {
+    try {
+        const client = new MongoClient(mongoUrl);
+        await client.connect();
+        db = client.db(dbName);
+        console.log('Connected to MongoDB');
+    } catch (error) {
+        console.error('MongoDB connection error:', error);
+        process.exit(1);
+    }
+}
 
-const UserResponse = mongoose.model('UserResponse', userResponseSchema);
+// Initialize database connection
+connectToMongo();
 
 // Routes
 app.post('/api/submit-response', async (req, res) => {
     try {
         const { day, color } = req.body;
-        const response = new UserResponse({ day, color });
-        await response.save();
+        const response = {
+            day,
+            color,
+            timestamp: new Date()
+        };
+        
+        await db.collection('userResponses').insertOne(response);
         res.json({ success: true });
     } catch (error) {
+        console.error('Error submitting response:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -44,21 +52,26 @@ app.get('/api/global-stats', async (req, res) => {
         const stats = {};
         
         for (const day of ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']) {
-            const dayStats = await UserResponse.aggregate([
+            const pipeline = [
                 { $match: { day } },
                 { $group: { _id: '$color.hex', count: { $sum: 1 } } },
                 { $sort: { count: -1 } },
                 { $limit: 5 }
-            ]);
+            ];
             
+            const dayStats = await db.collection('userResponses').aggregate(pipeline).toArray();
+            
+            // Calculate percentages
+            const totalCount = dayStats.reduce((sum, stat) => sum + stat.count, 0);
             stats[day] = dayStats.reduce((acc, stat) => {
-                acc[stat._id] = Math.round((stat.count / dayStats.reduce((sum, s) => sum + s.count, 0)) * 100);
+                acc[stat._id] = Math.round((stat.count / totalCount) * 100);
                 return acc;
             }, {});
         }
         
         res.json(stats);
     } catch (error) {
+        console.error('Error getting global stats:', error);
         res.status(500).json({ error: error.message });
     }
 });
