@@ -269,10 +269,13 @@
             padding: 4rem 1rem; /* Add padding for scroll safety */
         }
 
-        .results-content h2 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 3rem;
+        .results-content h2, .results-section h3 {
+            color: #222 !important;
+            background: none !important;
+            text-shadow: 0 2px 8px rgba(255,255,255,0.5), 0 1px 0 #fff;
+            font-weight: 800;
+            letter-spacing: 1px;
+            margin-top: 0;
         }
 
         .results-grid {
@@ -446,7 +449,7 @@
         <!-- Splash Screen -->
         <div class="screen splash active" id="splash">
             <h1>What color is today?</h1>
-            <p>Choose what colors each day of the week make you think of and see how your results compare to the rest of the world.</p>
+            <p>Pick the color you think of for each day of the week. Then compare your results with the rest of the world.</p>
             <button class="btn" onclick="startQuiz()">Start</button>
         </div>
 
@@ -601,6 +604,7 @@
 
     <canvas id="shareCanvas" width="800" height="600"></canvas>
 
+    <script src="https://cdn.jsdelivr.net/npm/color-namer/browser.js"></script>
     <script>
         const colors = [
             { name: 'Crimson Red', hex: '#DC143C', hue: 'red' },
@@ -625,17 +629,17 @@
         const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
         let userChoices = {};
         let currentDayIndex = 0;
+        let userLocation = { city: null, country: null };
+        let globalData = {};
 
-        // Mock global data for demonstration
-        const globalData = {
-            monday: { '#006994': 23, '#36454F': 18, '#228B22': 15, '#7851A9': 12, '#DC143C': 10 },
-            tuesday: { '#228B22': 21, '#006994': 19, '#FFD700': 16, '#36454F': 14, '#FF7F7F': 11 },
-            wednesday: { '#FFD700': 25, '#228B22': 18, '#006994': 16, '#7851A9': 13, '#C0C0C0': 10 },
-            thursday: { '#7851A9': 22, '#FFD700': 20, '#228B22': 17, '#006994': 15, '#36454F': 9 },
-            friday: { '#FF6B35': 28, '#FFD700': 24, '#FF7F7F': 18, '#7851A9': 15, '#87CEEB': 8 },
-            saturday: { '#87CEEB': 26, '#FF6B35': 22, '#FFD700': 19, '#98FB98': 16, '#E6E6FA': 12 },
-            sunday: { '#E6E6FA': 24, '#87CEEB': 21, '#FFFFFF': 18, '#F5F5DC': 16, '#C0C0C0': 13 }
-        };
+        // Fetch geolocation on load
+        fetch('https://ipapi.co/json/')
+          .then(res => res.json())
+          .then(data => {
+            userLocation.city = data.city;
+            userLocation.country = data.country_name;
+          })
+          .catch(() => {});
 
         function getContrastTheme(hex){
             if (!hex) return 'light';
@@ -767,19 +771,16 @@
 
             updateSelectedColor(color, fromUserClick = false) {
                 this.selectedColor = color;
-                
                 this.screenElement.style.backgroundColor = color.hex;
-                this.colorNameElement.textContent = color.hex;
+                this.colorNameElement.textContent = '';
                 this.selectorElement.style.left = color.x + 'px';
                 this.selectorElement.style.top = color.y + 'px';
                 this.selectorElement.style.display = 'block';
-
                 const theme = getContrastTheme(color.hex);
                 this.screenElement.classList.toggle('dark-theme', theme === 'dark');
-
                 userChoices[this.day] = color;
-
                 if(fromUserClick) {
+                    submitResponse(this.day, color);
                     document.getElementById(this.day + 'Next').disabled = false;
                     updateProgress();
                 }
@@ -901,24 +902,31 @@
 
         function showResults() {
             showScreen('results', false);
-            displayResults();
+            fetch('/api/global-stats')
+                .then(res => res.json())
+                .then(data => {
+                    globalData = data;
+                    displayResults();
+                })
+                .catch(err => {
+                    console.error('Failed to fetch global stats:', err);
+                    displayResults();
+                });
         }
 
         function displayResults() {
             const yourColorsContainer = document.getElementById('yourColors');
             yourColorsContainer.innerHTML = '';
-            
             days.forEach((day, index) => {
                 const dayResult = document.createElement('div');
                 dayResult.className = 'day-result';
-                
                 const userColor = userChoices[day];
+                const colorName = namer(userColor.hex).pantone[0]?.name || namer(userColor.hex).ntc[0]?.name || userColor.hex;
                 dayResult.innerHTML = `
                     <div class="day-name">${dayNames[index]}</div>
                     <div class="color-circle" style="background-color: ${userColor.hex}"></div>
-                    <div class="color-hex">${userColor.hex}</div>
+                    <div class="color-hex">${colorName}</div>
                 `;
-                
                 yourColorsContainer.appendChild(dayResult);
             });
             
@@ -928,7 +936,9 @@
             days.forEach((day, index) => {
                 const userChoice = userChoices[day];
                 const dayData = globalData[day];
-                const userPercentage = dayData[userChoice.hex] || 5;
+                const colorStats = dayData[userChoice.hex] || { percent: 5, topLocation: '' };
+                const userPercentage = colorStats.percent;
+                const topLocation = colorStats.topLocation;
                 
                 const topColors = Object.entries(dayData)
                     .sort((a, b) => b[1] - a[1])
@@ -938,14 +948,17 @@
                 comparisonItem.className = 'comparison-item';
                 
                 const topColorsHtml = topColors.map(([colorHex, percentage]) => {
-                    return `<div class="top-color" style="background-color: ${colorHex}" title="${colorHex} (${percentage}%)"></div>`;
+                    const colorName = namer(colorHex).pantone[0]?.name || namer(colorHex).ntc[0]?.name || colorHex;
+                    return `<div class="top-color" style="background-color: ${colorHex}" title="${colorName} (${percentage}%)"></div>`;
                 }).join('');
                 
+                const userColorName = namer(userChoice.hex).pantone[0]?.name || namer(userChoice.hex).ntc[0]?.name || userChoice.hex;
                 comparisonItem.innerHTML = `
                     <div class="comparison-day">${dayNames[index]}</div>
                     <div class="comparison-stats">
-                        <div>You chose: ${userChoice.hex}</div>
+                        <div>You chose: ${userColorName}</div>
                         <div>${userPercentage}% chose this color</div>
+                        <div>${topLocation ? `Most popular in: ${topLocation}` : ''}</div>
                         <div class="top-colors" style="margin-top: 0.5rem;">
                             <span style="font-size: 0.8rem; margin-right: 0.5rem;">Top picks:</span>
                             ${topColorsHtml}
@@ -1154,6 +1167,20 @@
             document.getElementById('progressFill').style.width = '0%';
             
             showScreen('splash');
+        }
+
+        function submitResponse(day, color) {
+            // Called when user submits a color for a day
+            fetch('/api/submit-response', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    day,
+                    color,
+                    city: userLocation.city,
+                    country: userLocation.country
+                })
+            });
         }
 
         updateProgress();

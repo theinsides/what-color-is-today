@@ -46,14 +46,14 @@ app.post('/api/submit-response', async (req, res) => {
         if (!db) {
             return res.status(503).json({ error: 'Database not connected' });
         }
-        
-        const { day, color } = req.body;
+        const { day, color, city, country } = req.body;
         const response = {
             day,
             color,
+            city: city || null,
+            country: country || null,
             timestamp: new Date()
         };
-        
         await db.collection('userResponses').insertOne(response);
         res.json({ success: true });
     } catch (error) {
@@ -67,27 +67,56 @@ app.get('/api/global-stats', async (req, res) => {
         if (!db) {
             return res.status(503).json({ error: 'Database not connected' });
         }
-        
         const stats = {};
-        
         for (const day of ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']) {
             const pipeline = [
                 { $match: { day } },
-                { $group: { _id: '$color.hex', count: { $sum: 1 } } },
+                { $group: { _id: { hex: '$color.hex', city: '$city', country: '$country' }, count: { $sum: 1 } } },
                 { $sort: { count: -1 } },
-                { $limit: 5 }
             ];
-            
             const dayStats = await db.collection('userResponses').aggregate(pipeline).toArray();
-            
-            // Calculate percentages
-            const totalCount = dayStats.reduce((sum, stat) => sum + stat.count, 0);
-            stats[day] = dayStats.reduce((acc, stat) => {
-                acc[stat._id] = Math.round((stat.count / totalCount) * 100);
-                return acc;
-            }, {});
+            // Aggregate by color hex for percentages
+            const colorCounts = {};
+            let total = 0;
+            dayStats.forEach(stat => {
+                const hex = stat._id.hex;
+                colorCounts[hex] = (colorCounts[hex] || 0) + stat.count;
+                total += stat.count;
+            });
+            // Find top city/country for each color
+            const colorLocations = {};
+            dayStats.forEach(stat => {
+                const hex = stat._id.hex;
+                const city = stat._id.city;
+                const country = stat._id.country;
+                if (!colorLocations[hex]) colorLocations[hex] = {};
+                const locKey = [city, country].filter(Boolean).join(', ');
+                if (!colorLocations[hex][locKey]) colorLocations[hex][locKey] = 0;
+                colorLocations[hex][locKey] += stat.count;
+            });
+            // Find most popular location for each color
+            const colorTopLocation = {};
+            Object.keys(colorLocations).forEach(hex => {
+                const locs = colorLocations[hex];
+                let topLoc = '';
+                let topCount = 0;
+                Object.entries(locs).forEach(([loc, count]) => {
+                    if (count > topCount) {
+                        topLoc = loc;
+                        topCount = count;
+                    }
+                });
+                colorTopLocation[hex] = topLoc;
+            });
+            // Build stats object
+            stats[day] = {};
+            Object.keys(colorCounts).forEach(hex => {
+                stats[day][hex] = {
+                    percent: Math.round((colorCounts[hex] / total) * 100),
+                    topLocation: colorTopLocation[hex]
+                };
+            });
         }
-        
         res.json(stats);
     } catch (error) {
         console.error('Error getting global stats:', error);
