@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { MongoClient } = require('mongodb');
+const path = require('path');
 const app = express();
 
 // Middleware
@@ -92,6 +93,10 @@ app.get('/api/global-stats', async (req, res) => {
         console.error('Error getting global stats:', error);
         res.status(500).json({ error: error.message });
     }
+});
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'color_day_quiz.html'));
 });
 
 const PORT = process.env.PORT || 3000;
