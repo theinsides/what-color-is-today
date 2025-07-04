@@ -604,7 +604,6 @@
 
     <canvas id="shareCanvas" width="800" height="600"></canvas>
 
-    <script src="https://unpkg.com/ntcjs@1.0.0/ntc.js"></script>
     <script>
         const colors = [
             { name: 'Crimson Red', hex: '#DC143C', hue: 'red' },
@@ -921,7 +920,7 @@
                 const dayResult = document.createElement('div');
                 dayResult.className = 'day-result';
                 const userColor = userChoices[day];
-                const colorName = ntc.name(userColor.hex)[1];
+                const colorName = getColorName(userColor.hex);
                 dayResult.innerHTML = `
                     <div class="day-name">${dayNames[index]}</div>
                     <div class="color-circle" style="background-color: ${userColor.hex}"></div>
@@ -948,11 +947,11 @@
                 comparisonItem.className = 'comparison-item';
                 
                 const topColorsHtml = topColors.map(([colorHex, percentageObj]) => {
-                    const colorName = ntc.name(colorHex)[1];
+                    const colorName = getColorName(colorHex);
                     return `<div class="top-color" style="background-color: ${colorHex}" title="${colorName} (${percentageObj.percent}%)"></div>`;
                 }).join('');
                 
-                const userColorName = ntc.name(userChoice.hex)[1];
+                const userColorName = getColorName(userChoice.hex);
                 comparisonItem.innerHTML = `
                     <div class="comparison-day">${dayNames[index]}</div>
                     <div class="comparison-stats">
@@ -1181,6 +1180,58 @@
                     country: userLocation.country
                 })
             });
+        }
+
+        // Simple color name mapping (expand as needed)
+        const COLOR_NAMES = [
+            { name: "Red", hex: "#FF0000" },
+            { name: "Green", hex: "#00FF00" },
+            { name: "Blue", hex: "#0000FF" },
+            { name: "Yellow", hex: "#FFFF00" },
+            { name: "Cyan", hex: "#00FFFF" },
+            { name: "Magenta", hex: "#FF00FF" },
+            { name: "Black", hex: "#000000" },
+            { name: "White", hex: "#FFFFFF" },
+            { name: "Gray", hex: "#808080" },
+            { name: "Orange", hex: "#FFA500" },
+            { name: "Pink", hex: "#FFC0CB" },
+            { name: "Purple", hex: "#800080" },
+            { name: "Brown", hex: "#A52A2A" },
+            // ...add more as desired
+        ];
+        // Helper to get the closest color name
+        function getColorName(hex) {
+            function hexToRgb(h) {
+                let r = 0, g = 0, b = 0;
+                if (h.length === 4) {
+                    r = "0x" + h[1] + h[1];
+                    g = "0x" + h[2] + h[2];
+                    b = "0x" + h[3] + h[3];
+                } else if (h.length === 7) {
+                    r = "0x" + h[1] + h[2];
+                    g = "0x" + h[3] + h[4];
+                    b = "0x" + h[5] + h[6];
+                }
+                return [parseInt(r), parseInt(g), parseInt(b)];
+            }
+            function distance(a, b) {
+                return Math.sqrt(
+                    Math.pow(a[0] - b[0], 2) +
+                    Math.pow(a[1] - b[1], 2) +
+                    Math.pow(a[2] - b[2], 2)
+                );
+            }
+            const rgb = hexToRgb(hex);
+            let minDist = Infinity;
+            let closest = COLOR_NAMES[0].name;
+            COLOR_NAMES.forEach(color => {
+                const d = distance(rgb, hexToRgb(color.hex));
+                if (d < minDist) {
+                    minDist = d;
+                    closest = color.name;
+                }
+            });
+            return closest;
         }
 
         updateProgress();
