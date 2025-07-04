@@ -604,7 +604,7 @@
 
     <canvas id="shareCanvas" width="800" height="600"></canvas>
 
-    <script src="https://cdn.jsdelivr.net/npm/color-namer/browser.js"></script>
+    <script src="https://unpkg.com/ntcjs@1.0.0/ntc.js"></script>
     <script>
         const colors = [
             { name: 'Crimson Red', hex: '#DC143C', hue: 'red' },
@@ -921,7 +921,7 @@
                 const dayResult = document.createElement('div');
                 dayResult.className = 'day-result';
                 const userColor = userChoices[day];
-                const colorName = namer(userColor.hex).pantone[0]?.name || namer(userColor.hex).ntc[0]?.name || userColor.hex;
+                const colorName = ntc.name(userColor.hex)[1];
                 dayResult.innerHTML = `
                     <div class="day-name">${dayNames[index]}</div>
                     <div class="color-circle" style="background-color: ${userColor.hex}"></div>
@@ -941,18 +941,18 @@
                 const topLocation = colorStats.topLocation;
                 
                 const topColors = Object.entries(dayData)
-                    .sort((a, b) => b[1] - a[1])
+                    .sort((a, b) => b[1].percent - a[1].percent)
                     .slice(0, 3);
                 
                 const comparisonItem = document.createElement('div');
                 comparisonItem.className = 'comparison-item';
                 
-                const topColorsHtml = topColors.map(([colorHex, percentage]) => {
-                    const colorName = namer(colorHex).pantone[0]?.name || namer(colorHex).ntc[0]?.name || colorHex;
-                    return `<div class="top-color" style="background-color: ${colorHex}" title="${colorName} (${percentage}%)"></div>`;
+                const topColorsHtml = topColors.map(([colorHex, percentageObj]) => {
+                    const colorName = ntc.name(colorHex)[1];
+                    return `<div class="top-color" style="background-color: ${colorHex}" title="${colorName} (${percentageObj.percent}%)"></div>`;
                 }).join('');
                 
-                const userColorName = namer(userChoice.hex).pantone[0]?.name || namer(userChoice.hex).ntc[0]?.name || userChoice.hex;
+                const userColorName = ntc.name(userChoice.hex)[1];
                 comparisonItem.innerHTML = `
                     <div class="comparison-day">${dayNames[index]}</div>
                     <div class="comparison-stats">
