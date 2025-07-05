@@ -1159,7 +1159,6 @@
         function restartQuiz() {
             userChoices = {};
             currentDayIndex = 0;
-            
             days.forEach(day => {
                 const wheel = colorWheels[day];
                 wheel.selectedColor = null;
@@ -1168,18 +1167,14 @@
                 wheel.brightnessSlider.value = 50;
                 wheel.brightness = 50;
                 wheel.drawColorWheel();
-                
                 const screenEl = document.getElementById(day);
                 screenEl.style.backgroundColor = '';
                 screenEl.classList.remove('dark-theme');
             });
-            
-            document.querySelectorAll('.btn[id$="Next"]').forEach(btn => {
+            document.querySelectorAll('.btn[id$=\"Next\"]').forEach(btn => {
                 btn.disabled = true;
             });
-            
             document.getElementById('progressFill').style.width = '0%';
-            
             showScreen('splash');
         }
 
