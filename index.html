@@ -43,7 +43,8 @@
             transform: translateY(20px);
             transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.4s ease;
             pointer-events: none;
-            overflow-y: auto; /* Allow scrolling on individual screens */
+            overflow-y: auto; /* allow scrolling if content is tall */
+            min-height: 100vh;
         }
 
         .screen.active {
@@ -266,7 +267,7 @@
             color: #333;
             max-width: 1200px;
             width: 100%;
-            padding: 4rem 1rem; /* Add padding for scroll safety */
+            padding: 4rem 1rem;
         }
 
         .results-content h2, .results-section h3 {
