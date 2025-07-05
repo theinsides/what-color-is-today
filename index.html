@@ -453,6 +453,39 @@
             min-height: 100vh;
             height: 100%;
         }
+
+        @media (max-width: 600px) {
+            .results-content, .results-content h2, .results-section h3, .comparison-stats, .your-colors, .day-result, .day-result .color-hex, .day-result .day-name {
+                text-align: center !important;
+                justify-content: center !important;
+                align-items: center !important;
+            }
+            .results-content {
+                padding: 2rem 0.5rem;
+            }
+            .results-grid {
+                gap: 1rem;
+            }
+            .day-screen-content {
+                padding: 1.5rem 0 1rem 0;
+                gap: 0.5rem;
+            }
+            .color-picker-section {
+                gap: 1rem;
+                margin-bottom: 1.5rem;
+            }
+            .color-name {
+                margin-bottom: 1rem;
+                min-height: 1.5rem;
+            }
+            .brightness-slider-container {
+                margin-top: 0.5rem;
+            }
+            .btn {
+                padding: 0.7rem 1.5rem;
+                font-size: 1rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -747,6 +780,10 @@
                 this.canvas.addEventListener('click', (e) => this.handleClick(e));
                 this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
                 this.brightnessSlider.addEventListener('input', (e) => this.handleBrightnessChange(e));
+                // Touch support for mobile
+                this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
+                this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
+                this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
             }
 
             handleMouseDown(e) {
@@ -853,6 +890,28 @@
                 return '#' + [r, g, b].map(x => {
                     return x.toString(16).padStart(2, '0');
                 }).join('');
+            }
+
+            handleTouchStart(e) {
+                e.preventDefault();
+                this.isDragging = true;
+                this.handleTouchMove(e);
+            }
+
+            handleTouchMove(e) {
+                if (!this.isDragging) return;
+                const rect = this.canvas.getBoundingClientRect();
+                const touch = e.touches[0];
+                const x = touch.clientX - rect.left;
+                const y = touch.clientY - rect.top;
+                const color = this.getColorAt(x, y);
+                if (color) {
+                    this.updateSelectedColor(color, true);
+                }
+            }
+
+            handleTouchEnd(e) {
+                this.isDragging = false;
             }
         }
 
